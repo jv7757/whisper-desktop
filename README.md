@@ -167,14 +167,16 @@ whisper-desktop/
 
 ### 打包后应用白屏
 
-**问题**: 开发环境正常，但打包后应用白屏。
+**问题**: 开发环境正常，但打包后应用白屏，提示跨域错误。
 
-**解决**: 此问题已修复。项目使用了以下优化：
-- `pathToFileURL()` 处理跨平台路径
-- `asarUnpack` 配置解包 renderer 文件
-- 自动检测 asar 解包路径
+**原因**: 本地文件跨域限制（CORS）。使用 `file://` 协议时，浏览器会阻止资源加载。
 
-如仍有问题，运行 `npm run diagnose` 检查配置。
+**解决**: 此问题已修复，通过以下方式：
+- 生产环境禁用 `webSecurity`（安全，仅加载本地打包文件）
+- 使用 `pathToFileURL()` 正确处理文件路径
+- Vite 配置相对路径引用
+
+如仍有问题，运行 `npm run diagnose` 检查配置，详见 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)。
 
 ### 提示缺少依赖
 

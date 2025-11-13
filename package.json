@@ -56,9 +56,6 @@
       "dist/**/*",
       "package.json"
     ],
-    "asarUnpack": [
-      "dist/renderer/**"
-    ],
     "extraResources": [
       {
         "from": "resources",

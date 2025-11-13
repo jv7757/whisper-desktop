@@ -17,7 +17,10 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      // Disable web security in production to allow local file loading
+      // This is safe for desktop apps loading local resources
+      webSecurity: isDev ? true : false
     }
   })
 
@@ -25,18 +28,8 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools()
   } else {
-    // In production, the renderer files are unpacked from asar
-    // Check both possible locations
-    let indexPath = path.join(__dirname, '../renderer/index.html')
-
-    // If running from asar, check the unpacked location
-    if (indexPath.includes('app.asar')) {
-      const unpackedPath = indexPath.replace('app.asar', 'app.asar.unpacked')
-      if (fs.existsSync(unpackedPath)) {
-        indexPath = unpackedPath
-      }
-    }
-
+    // In production, load from local file system
+    const indexPath = path.join(__dirname, '../renderer/index.html')
     mainWindow.loadURL(pathToFileURL(indexPath).toString())
   }
 

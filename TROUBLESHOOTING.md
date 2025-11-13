@@ -6,23 +6,41 @@
 开发环境运行正常，但打包后的应用（Windows/macOS/Linux）出现白屏，控制台提示：
 ```
 Not allowed to load local resource: file:///...
+Access to script at 'file://...' from origin 'null' has been blocked by CORS policy
 ```
+
+### 根本原因
+这是 **本地文件跨域问题**（CORS）。当使用 `file://` 协议加载本地 HTML 文件时，浏览器的同源策略会阻止 JavaScript、CSS 等资源的加载。
 
 ### 解决方案
 
-此问题已在最新版本中修复，包含以下改进：
+此问题已在最新版本中修复，采用以下方案：
 
-#### 1. 路径加载优化
+#### 1. 禁用生产环境的 webSecurity（推荐）
+在 `electron/main.ts` 中：
+```typescript
+webPreferences: {
+  nodeIntegration: false,
+  contextIsolation: true,
+  preload: path.join(__dirname, 'preload.js'),
+  webSecurity: isDev ? true : false  // 生产环境禁用跨域限制
+}
+```
+
+**为什么安全？**
+- 仅在生产环境禁用，开发环境仍然保持安全检查
+- 应用只加载本地打包的文件，不访问外部资源
+- 不影响 contextIsolation 和其他安全特性
+- 这是桌面应用的标准做法
+
+#### 2. 路径加载优化
 - 使用 `pathToFileURL()` 正确处理跨平台文件路径
-- 自动检测并使用 asar 解包后的文件路径
-
-#### 2. Electron Builder 配置
-- 配置 `asarUnpack` 将 renderer 文件解包
-- 确保资源文件正确打包到 extraResources
+- 直接从 asar 包加载资源，无需解包
 
 #### 3. Vite 构建配置
 - 设置 `base: './'` 使用相对路径
 - 输出目录配置为 `dist/renderer`
+- 确保所有资源使用相对路径引用
 
 ### 如何验证修复
 
