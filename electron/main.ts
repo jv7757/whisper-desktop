@@ -1,12 +1,36 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, protocol } from 'electron'
 import * as path from 'path'
 import { spawn } from 'child_process'
 import * as fs from 'fs'
-import { pathToFileURL } from 'url'
+import { URL } from 'url'
 
 let mainWindow: BrowserWindow | null = null
 
 const isDev = process.env.NODE_ENV === 'development'
+
+// Set custom protocol as privileged (needed before app is ready)
+if (!isDev) {
+  protocol.registerSchemesAsPrivileged([
+    {
+      scheme: 'app',
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+        corsEnabled: false
+      }
+    }
+  ])
+}
+
+// Register custom protocol for loading local files
+function registerLocalResourceProtocol() {
+  protocol.registerFileProtocol('app', (request, callback) => {
+    const url = request.url.substr(6) // Remove 'app://' prefix
+    const filePath = path.normalize(path.join(__dirname, '../renderer', url))
+    callback({ path: filePath })
+  })
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -18,9 +42,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
-      // Disable web security in production to allow local file loading
-      // This is safe for desktop apps loading local resources
-      webSecurity: isDev ? true : false
+      webSecurity: true  // Keep security enabled
     }
   })
 
@@ -28,9 +50,10 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools()
   } else {
-    // In production, load from local file system
-    const indexPath = path.join(__dirname, '../renderer/index.html')
-    mainWindow.loadURL(pathToFileURL(indexPath).toString())
+    // In production, use custom protocol
+    mainWindow.loadURL('app://index.html')
+    // Uncomment to debug packaged app
+    // mainWindow.webContents.openDevTools()
   }
 
   mainWindow.on('closed', () => {
@@ -39,6 +62,11 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // Register custom protocol before creating window
+  if (!isDev) {
+    registerLocalResourceProtocol()
+  }
+
   createWindow()
 
   app.on('activate', () => {
