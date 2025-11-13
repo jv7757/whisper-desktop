@@ -27,7 +27,8 @@ if (!isDev) {
 function registerLocalResourceProtocol() {
   protocol.registerFileProtocol('app', (request, callback) => {
     const url = request.url.substr(6) // Remove 'app://' prefix
-    const filePath = path.normalize(path.join(__dirname, '../renderer', url))
+    // __dirname is 'dist/', so we need 'dist/renderer'
+    const filePath = path.normalize(path.join(__dirname, 'renderer', url))
     callback({ path: filePath })
   })
 }
