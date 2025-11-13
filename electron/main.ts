@@ -120,7 +120,7 @@ ipcMain.handle('transcribe-audio', async (event, filePath: string, modelPath: st
       // Get resources path
       const resourcesPath = isDev
         ? path.join(__dirname, '../../resources')
-        : process.resourcesPath
+        : path.join(process.resourcesPath, 'resources')
 
       const ffmpegPath = path.join(resourcesPath, 'bin', process.platform, 'ffmpeg')
       const whisperPath = path.join(resourcesPath, 'bin', process.platform, 'whisper')
@@ -233,7 +233,7 @@ ipcMain.handle('transcribe-audio', async (event, filePath: string, modelPath: st
 ipcMain.handle('check-dependencies', async () => {
   const resourcesPath = isDev
     ? path.join(__dirname, '../../resources')
-    : process.resourcesPath
+    : path.join(process.resourcesPath, 'resources')
 
   const binPath = path.join(resourcesPath, 'bin', process.platform)
   const ffmpegExists = fs.existsSync(path.join(binPath, 'ffmpeg'))
@@ -252,7 +252,7 @@ ipcMain.handle('check-dependencies', async () => {
 ipcMain.handle('get-models', async () => {
   const resourcesPath = isDev
     ? path.join(__dirname, '../../resources')
-    : process.resourcesPath
+    : path.join(process.resourcesPath, 'resources')
 
   const modelsPath = path.join(resourcesPath, 'models')
 
