@@ -26,9 +26,20 @@ if (!isDev) {
 // Register custom protocol for loading local files
 function registerLocalResourceProtocol() {
   protocol.registerFileProtocol('app', (request, callback) => {
-    const url = request.url.substr(6) // Remove 'app://' prefix
-    // __dirname is 'dist/', so we need 'dist/renderer'
+    let url = request.url.substring(6) // Remove 'app://' prefix
+
+    // Remove any leading slashes
+    url = url.replace(/^\/+/, '')
+
+    // Decode URL encoding
+    url = decodeURIComponent(url)
+
+    // __dirname is 'dist/', renderer files are in 'dist/renderer/'
     const filePath = path.normalize(path.join(__dirname, 'renderer', url))
+
+    // For debugging (will be removed)
+    console.log('Protocol request:', request.url, '->', filePath)
+
     callback({ path: filePath })
   })
 }
@@ -53,8 +64,8 @@ function createWindow() {
   } else {
     // In production, use custom protocol
     mainWindow.loadURL('app://index.html')
-    // Uncomment to debug packaged app
-    // mainWindow.webContents.openDevTools()
+    // Temporary: enable DevTools to debug
+    mainWindow.webContents.openDevTools()
   }
 
   mainWindow.on('closed', () => {
