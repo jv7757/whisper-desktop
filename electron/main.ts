@@ -28,8 +28,11 @@ function registerLocalResourceProtocol() {
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.substring(6) // Remove 'app://' prefix
 
-    // Remove any leading slashes
-    url = url.replace(/^\/+/, '')
+    // Remove leading ./ or /
+    url = url.replace(/^\.?\/+/, '')
+
+    // Fix: remove 'index.html/' prefix if present (from relative path resolution)
+    url = url.replace(/^index\.html\//, '')
 
     // Decode URL encoding
     url = decodeURIComponent(url)
@@ -63,7 +66,8 @@ function createWindow() {
     mainWindow.webContents.openDevTools()
   } else {
     // In production, use custom protocol
-    mainWindow.loadURL('app://index.html')
+    // Use trailing slash so relative paths resolve correctly
+    mainWindow.loadURL('app://./index.html')
     // Temporary: enable DevTools to debug
     mainWindow.webContents.openDevTools()
   }
