@@ -111,6 +111,20 @@ npm run build:linux  # Linux
 
 构建产物将输出到 `release/` 目录。
 
+### 构建诊断
+
+如果遇到构建或打包问题，运行诊断脚本：
+```bash
+npm run diagnose
+```
+
+该脚本会检查：
+- 构建输出是否完整
+- 资源文件是否存在
+- 配置是否正确
+
+**常见问题**: 如果打包后应用白屏，请查看 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) 获取详细的解决方案。
+
 ## 技术栈
 
 - **Electron**: 跨平台桌面应用框架
@@ -148,6 +162,19 @@ whisper-desktop/
 6. 可以编辑、复制或保存转录结果
 
 ## 常见问题
+
+完整的故障排除指南请查看 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+
+### 打包后应用白屏
+
+**问题**: 开发环境正常，但打包后应用白屏。
+
+**解决**: 此问题已修复。项目使用了以下优化：
+- `pathToFileURL()` 处理跨平台路径
+- `asarUnpack` 配置解包 renderer 文件
+- 自动检测 asar 解包路径
+
+如仍有问题，运行 `npm run diagnose` 检查配置。
 
 ### 提示缺少依赖
 

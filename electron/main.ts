@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import * as path from 'path'
 import { spawn } from 'child_process'
 import * as fs from 'fs'
+import { pathToFileURL } from 'url'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -24,7 +25,19 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools()
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+    // In production, the renderer files are unpacked from asar
+    // Check both possible locations
+    let indexPath = path.join(__dirname, '../renderer/index.html')
+
+    // If running from asar, check the unpacked location
+    if (indexPath.includes('app.asar')) {
+      const unpackedPath = indexPath.replace('app.asar', 'app.asar.unpacked')
+      if (fs.existsSync(unpackedPath)) {
+        indexPath = unpackedPath
+      }
+    }
+
+    mainWindow.loadURL(pathToFileURL(indexPath).toString())
   }
 
   mainWindow.on('closed', () => {
