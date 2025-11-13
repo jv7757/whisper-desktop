@@ -40,9 +40,6 @@ function registerLocalResourceProtocol() {
     // __dirname is 'dist/', renderer files are in 'dist/renderer/'
     const filePath = path.normalize(path.join(__dirname, 'renderer', url))
 
-    // For debugging (will be removed)
-    console.log('Protocol request:', request.url, '->', filePath)
-
     callback({ path: filePath })
   })
 }
@@ -68,8 +65,8 @@ function createWindow() {
     // In production, use custom protocol
     // Use trailing slash so relative paths resolve correctly
     mainWindow.loadURL('app://./index.html')
-    // Temporary: enable DevTools to debug
-    mainWindow.webContents.openDevTools()
+    // Uncomment to debug packaged app
+    // mainWindow.webContents.openDevTools()
   }
 
   mainWindow.on('closed', () => {
