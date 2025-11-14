@@ -119,8 +119,12 @@ ipcMain.handle('transcribe-audio', async (event, filePath: string, modelPath: st
         ? path.join(__dirname, '../../resources')
         : path.join(process.resourcesPath, 'resources')
 
-      const ffmpegPath = path.join(resourcesPath, 'bin', process.platform, 'ffmpeg')
-      const whisperPath = path.join(resourcesPath, 'bin', process.platform, 'whisper')
+      // Add .exe extension for Windows
+      const ffmpegBinary = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'
+      const whisperBinary = process.platform === 'win32' ? 'whisper.exe' : 'whisper'
+
+      const ffmpegPath = path.join(resourcesPath, 'bin', process.platform, ffmpegBinary)
+      const whisperPath = path.join(resourcesPath, 'bin', process.platform, whisperBinary)
 
       // Step 1: Convert to WAV using ffmpeg
       const wavPath = path.join(app.getPath('temp'), `temp_audio_${Date.now()}.wav`)
@@ -232,9 +236,13 @@ ipcMain.handle('check-dependencies', async () => {
     ? path.join(__dirname, '../../resources')
     : path.join(process.resourcesPath, 'resources')
 
+  // Add .exe extension for Windows
+  const ffmpegBinary = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'
+  const whisperBinary = process.platform === 'win32' ? 'whisper.exe' : 'whisper'
+
   const binPath = path.join(resourcesPath, 'bin', process.platform)
-  const ffmpegExists = fs.existsSync(path.join(binPath, 'ffmpeg'))
-  const whisperExists = fs.existsSync(path.join(binPath, 'whisper'))
+  const ffmpegExists = fs.existsSync(path.join(binPath, ffmpegBinary))
+  const whisperExists = fs.existsSync(path.join(binPath, whisperBinary))
   const modelPath = path.join(resourcesPath, 'models')
   const modelExists = fs.existsSync(modelPath) && fs.readdirSync(modelPath).some(f => f.endsWith('.bin'))
 
