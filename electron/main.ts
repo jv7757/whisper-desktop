@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, protocol } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, protocol, Menu } from 'electron'
 import * as path from 'path'
 import { spawn } from 'child_process'
 import * as fs from 'fs'
@@ -51,6 +51,7 @@ function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 600,
+    autoHideMenuBar: true,  // Hide menu bar on Windows and Linux
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -58,6 +59,9 @@ function createWindow() {
       webSecurity: true  // Keep security enabled
     }
   })
+
+  // Remove menu bar completely on all platforms
+  mainWindow.setMenuBarVisibility(false)
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173')
