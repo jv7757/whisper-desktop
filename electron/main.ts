@@ -340,6 +340,9 @@ ipcMain.handle('download-model', async (event, url: string, filename: string) =>
         response.on('data', (chunk: Buffer) => {
           downloadedSize += chunk.length
 
+          // Write chunk to file
+          file.write(chunk)
+
           // Calculate progress
           let progress = 0
           let statusText = ''
@@ -365,16 +368,24 @@ ipcMain.handle('download-model', async (event, url: string, filename: string) =>
           }
         })
 
-        response.pipe(file)
-
-        file.on('finish', () => {
-          file.close()
-          console.log('Download completed')
+        response.on('end', () => {
+          file.end()
+          console.log('Download completed, total downloaded:', downloadedSize, 'bytes')
           event.sender.send('download-progress', 100, '下载完成')
           resolve(undefined)
         })
 
+        response.on('error', (error) => {
+          console.error('Response error:', error)
+          file.close()
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath)
+          }
+          reject(error)
+        })
+
         file.on('error', (error) => {
+          console.error('File write error:', error)
           file.close()
           if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath)
