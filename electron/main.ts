@@ -3,6 +3,7 @@ import * as path from 'path'
 import { spawn } from 'child_process'
 import * as fs from 'fs'
 import { URL } from 'url'
+import * as https from 'https'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -278,4 +279,78 @@ ipcMain.handle('get-models', async () => {
     name: f.replace('.bin', ''),
     path: path.join(modelsPath, f)
   }))
+})
+
+ipcMain.handle('download-model', async (event, url: string, filename: string) => {
+  return new Promise((resolve, reject) => {
+    const resourcesPath = isDev
+      ? path.join(__dirname, '../../resources')
+      : path.join(process.resourcesPath, 'resources')
+
+    const modelsPath = path.join(resourcesPath, 'models')
+
+    // Ensure models directory exists
+    if (!fs.existsSync(modelsPath)) {
+      fs.mkdirSync(modelsPath, { recursive: true })
+    }
+
+    const filePath = path.join(modelsPath, filename)
+    const file = fs.createWriteStream(filePath)
+
+    event.sender.send('download-progress', 0, '开始下载...')
+
+    https.get(url, (response) => {
+      // Handle redirects
+      if (response.statusCode === 302 || response.statusCode === 301) {
+        const redirectUrl = response.headers.location
+        if (redirectUrl) {
+          file.close()
+          fs.unlinkSync(filePath)
+          // Recursively follow redirect
+          https.get(redirectUrl, handleDownload)
+          return
+        }
+      }
+
+      handleDownload(response)
+    }).on('error', (error) => {
+      file.close()
+      fs.unlinkSync(filePath)
+      reject(error)
+    })
+
+    function handleDownload(response: any) {
+      if (response.statusCode !== 200) {
+        file.close()
+        fs.unlinkSync(filePath)
+        reject(new Error(`下载失败: HTTP ${response.statusCode}`))
+        return
+      }
+
+      const totalSize = parseInt(response.headers['content-length'], 10)
+      let downloadedSize = 0
+
+      response.on('data', (chunk: Buffer) => {
+        downloadedSize += chunk.length
+        const progress = Math.round((downloadedSize / totalSize) * 100)
+        const downloadedMB = (downloadedSize / 1024 / 1024).toFixed(2)
+        const totalMB = (totalSize / 1024 / 1024).toFixed(2)
+        event.sender.send('download-progress', progress, `下载中... ${downloadedMB}MB / ${totalMB}MB`)
+      })
+
+      response.pipe(file)
+
+      file.on('finish', () => {
+        file.close()
+        event.sender.send('download-progress', 100, '下载完成')
+        resolve(undefined)
+      })
+
+      file.on('error', (error) => {
+        file.close()
+        fs.unlinkSync(filePath)
+        reject(error)
+      })
+    }
+  })
 })
