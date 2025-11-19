@@ -297,7 +297,6 @@ ipcMain.handle('download-model', async (event, url: string, filename: string) =>
     const filePath = path.join(modelsPath, filename)
 
     event.sender.send('download-progress', 0, '开始下载...')
-    console.log('Starting download from:', url)
 
     // Recursive function to handle redirects
     function downloadFile(downloadUrl: string, redirectCount = 0) {
@@ -306,17 +305,11 @@ ipcMain.handle('download-model', async (event, url: string, filename: string) =>
         return
       }
 
-      console.log('Downloading from:', downloadUrl, 'Redirect count:', redirectCount)
-
       https.get(downloadUrl, (response) => {
-        console.log('Response status:', response.statusCode)
-        console.log('Response headers:', response.headers)
-
         // Handle redirects
         if (response.statusCode === 302 || response.statusCode === 301) {
           const redirectUrl = response.headers.location
           if (redirectUrl) {
-            console.log('Redirecting to:', redirectUrl)
             event.sender.send('download-progress', 0, '跟随重定向...')
             downloadFile(redirectUrl, redirectCount + 1)
             return
@@ -335,17 +328,7 @@ ipcMain.handle('download-model', async (event, url: string, filename: string) =>
         let downloadedSize = 0
         let lastProgressUpdate = 0
 
-        console.log('Download started, total size:', totalSize, 'bytes')
-        console.log('Response readable:', response.readable)
-        console.log('Response readableEnded:', response.readableEnded)
-
-        let dataEventCount = 0
-
         response.on('data', (chunk: Buffer) => {
-          dataEventCount++
-          if (dataEventCount === 1) {
-            console.log('FIRST DATA EVENT RECEIVED! Chunk size:', chunk.length)
-          }
           downloadedSize += chunk.length
 
           // Write chunk to file
@@ -373,7 +356,6 @@ ipcMain.handle('download-model', async (event, url: string, filename: string) =>
           // Only send update if progress changed by at least 1% or every 1MB to avoid too many updates
           const progressDiff = Math.abs(progress - lastProgressUpdate)
           if (progressDiff >= 1 || downloadedSize % (1024 * 1024) < chunk.length) {
-            console.log('Download progress:', progress, '%', statusText)
             event.sender.send('download-progress', progress, statusText)
             lastProgressUpdate = progress
           }
@@ -384,9 +366,7 @@ ipcMain.handle('download-model', async (event, url: string, filename: string) =>
         })
 
         response.on('end', () => {
-          console.log('Response end event. Total data events:', dataEventCount, 'Downloaded:', downloadedSize)
           file.end()
-          console.log('Download completed, total downloaded:', downloadedSize, 'bytes')
           event.sender.send('download-progress', 100, '下载完成')
           resolve(undefined)
         })
@@ -408,14 +388,6 @@ ipcMain.handle('download-model', async (event, url: string, filename: string) =>
           }
           reject(error)
         })
-
-        // Add a timeout to detect if data events never fire
-        setTimeout(() => {
-          if (dataEventCount === 0) {
-            console.error('WARNING: No data events received after 5 seconds!')
-            console.log('Response state - readable:', response.readable, 'ended:', response.readableEnded)
-          }
-        }, 5000)
       }).on('error', (error) => {
         console.error('HTTPS request error:', error)
         if (fs.existsSync(filePath)) {
