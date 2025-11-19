@@ -336,12 +336,23 @@ ipcMain.handle('download-model', async (event, url: string, filename: string) =>
         let lastProgressUpdate = 0
 
         console.log('Download started, total size:', totalSize, 'bytes')
+        console.log('Response readable:', response.readable)
+        console.log('Response readableEnded:', response.readableEnded)
+
+        let dataEventCount = 0
 
         response.on('data', (chunk: Buffer) => {
+          dataEventCount++
+          if (dataEventCount === 1) {
+            console.log('FIRST DATA EVENT RECEIVED! Chunk size:', chunk.length)
+          }
           downloadedSize += chunk.length
 
           // Write chunk to file
-          file.write(chunk)
+          const canContinue = file.write(chunk)
+          if (!canContinue) {
+            response.pause()
+          }
 
           // Calculate progress
           let progress = 0
@@ -368,7 +379,12 @@ ipcMain.handle('download-model', async (event, url: string, filename: string) =>
           }
         })
 
+        file.on('drain', () => {
+          response.resume()
+        })
+
         response.on('end', () => {
+          console.log('Response end event. Total data events:', dataEventCount, 'Downloaded:', downloadedSize)
           file.end()
           console.log('Download completed, total downloaded:', downloadedSize, 'bytes')
           event.sender.send('download-progress', 100, '下载完成')
@@ -392,6 +408,14 @@ ipcMain.handle('download-model', async (event, url: string, filename: string) =>
           }
           reject(error)
         })
+
+        // Add a timeout to detect if data events never fire
+        setTimeout(() => {
+          if (dataEventCount === 0) {
+            console.error('WARNING: No data events received after 5 seconds!')
+            console.log('Response state - readable:', response.readable, 'ended:', response.readableEnded)
+          }
+        }, 5000)
       }).on('error', (error) => {
         console.error('HTTPS request error:', error)
         if (fs.existsSync(filePath)) {
