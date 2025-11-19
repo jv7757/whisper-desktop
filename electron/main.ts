@@ -327,21 +327,45 @@ ipcMain.handle('download-model', async (event, url: string, filename: string) =>
         return
       }
 
-      const totalSize = parseInt(response.headers['content-length'], 10)
+      const totalSize = parseInt(response.headers['content-length'] || '0', 10)
       let downloadedSize = 0
+      let lastProgressUpdate = 0
+
+      console.log('Download started, total size:', totalSize, 'bytes')
 
       response.on('data', (chunk: Buffer) => {
         downloadedSize += chunk.length
-        const progress = Math.round((downloadedSize / totalSize) * 100)
-        const downloadedMB = (downloadedSize / 1024 / 1024).toFixed(2)
-        const totalMB = (totalSize / 1024 / 1024).toFixed(2)
-        event.sender.send('download-progress', progress, `下载中... ${downloadedMB}MB / ${totalMB}MB`)
+
+        // Calculate progress
+        let progress = 0
+        let statusText = ''
+
+        if (totalSize > 0) {
+          progress = Math.round((downloadedSize / totalSize) * 100)
+          const downloadedMB = (downloadedSize / 1024 / 1024).toFixed(2)
+          const totalMB = (totalSize / 1024 / 1024).toFixed(2)
+          statusText = `下载中... ${downloadedMB}MB / ${totalMB}MB (${progress}%)`
+        } else {
+          // If we don't have total size, just show downloaded amount
+          const downloadedMB = (downloadedSize / 1024 / 1024).toFixed(2)
+          statusText = `下载中... ${downloadedMB}MB`
+          progress = 0
+        }
+
+        // Only send update if progress changed by at least 1% or every 1MB to avoid too many updates
+        const progressDiff = Math.abs(progress - lastProgressUpdate)
+        if (progressDiff >= 1 || downloadedSize % (1024 * 1024) < chunk.length) {
+          console.log('Download progress:', progress, '%', statusText)
+          event.sender.send('download-progress', progress, statusText)
+          lastProgressUpdate = progress
+        }
       })
 
       response.pipe(file)
 
       file.on('finish', () => {
         file.close()
+        console.log('Download completed')
         event.sender.send('download-progress', 100, '下载完成')
         resolve(undefined)
       })
