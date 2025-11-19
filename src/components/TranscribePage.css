@@ -100,7 +100,16 @@
   border-radius: 6px;
 }
 
-.model-selector {
+.settings-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.model-selector,
+.format-selector {
+  flex: 1;
+  min-width: 250px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -109,13 +118,16 @@
   border-radius: 8px;
 }
 
-.model-selector label {
+.model-selector label,
+.format-selector label {
   font-size: 14px;
   font-weight: 600;
   color: #334155;
+  white-space: nowrap;
 }
 
-.model-selector select {
+.model-selector select,
+.format-selector select {
   flex: 1;
   padding: 8px 12px;
   border: 1px solid #cbd5e0;
@@ -125,7 +137,8 @@
   cursor: pointer;
 }
 
-.model-selector select:disabled {
+.model-selector select:disabled,
+.format-selector select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }

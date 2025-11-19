@@ -9,6 +9,7 @@ function TranscribePage() {
   const [isDragging, setIsDragging] = useState(false)
   const [models, setModels] = useState<Array<{ name: string; path: string }>>([])
   const [selectedModel, setSelectedModel] = useState<string>('')
+  const [outputFormat, setOutputFormat] = useState<'txt' | 'vtt' | 'srt'>('txt')
   const [dependenciesOk, setDependenciesOk] = useState(false)
   const dropZoneRef = useRef<HTMLDivElement>(null)
 
@@ -100,7 +101,7 @@ function TranscribePage() {
     setStatus('Starting transcription...')
 
     try {
-      const result = await window.electronAPI.transcribeAudio(selectedFile, selectedModel)
+      const result = await window.electronAPI.transcribeAudio(selectedFile, selectedModel, outputFormat)
       setTranscription(result)
       setStatus('Transcription completed!')
     } catch (error) {
@@ -163,23 +164,38 @@ function TranscribePage() {
           )}
         </div>
 
-        <div className="model-selector">
-          <label htmlFor="model-select">选择模型:</label>
-          <select
-            id="model-select"
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-            disabled={models.length === 0}
-          >
-            {models.length === 0 && (
-              <option value="">未找到模型</option>
-            )}
-            {models.map((model) => (
-              <option key={model.path} value={model.path}>
-                {model.name}
-              </option>
-            ))}
-          </select>
+        <div className="settings-row">
+          <div className="model-selector">
+            <label htmlFor="model-select">选择模型:</label>
+            <select
+              id="model-select"
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              disabled={models.length === 0}
+            >
+              {models.length === 0 && (
+                <option value="">未找到模型</option>
+              )}
+              {models.map((model) => (
+                <option key={model.path} value={model.path}>
+                  {model.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="format-selector">
+            <label htmlFor="format-select">输出格式:</label>
+            <select
+              id="format-select"
+              value={outputFormat}
+              onChange={(e) => setOutputFormat(e.target.value as 'txt' | 'vtt' | 'srt')}
+            >
+              <option value="txt">文本 (TXT)</option>
+              <option value="vtt">字幕 (VTT)</option>
+              <option value="srt">字幕 (SRT)</option>
+            </select>
+          </div>
         </div>
 
         <div className="output-area">

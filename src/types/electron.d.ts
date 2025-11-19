@@ -1,6 +1,6 @@
 export interface ElectronAPI {
   selectFile: () => Promise<string | null>
-  transcribeAudio: (filePath: string, modelPath: string) => Promise<string>
+  transcribeAudio: (filePath: string, modelPath: string, outputFormat: 'txt' | 'vtt' | 'srt') => Promise<string>
   onTranscriptionStatus: (callback: (status: string) => void) => void
   checkDependencies: () => Promise<{
     ffmpeg: boolean

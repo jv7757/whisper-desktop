@@ -111,7 +111,7 @@ ipcMain.handle('select-file', async () => {
   return null
 })
 
-ipcMain.handle('transcribe-audio', async (event, filePath: string, modelPath: string) => {
+ipcMain.handle('transcribe-audio', async (event, filePath: string, modelPath: string, outputFormat: string) => {
   return new Promise((resolve, reject) => {
     try {
       // Get resources path
@@ -158,11 +158,16 @@ ipcMain.handle('transcribe-audio', async (event, filePath: string, modelPath: st
         // Step 2: Run Whisper transcription
         event.sender.send('transcription-status', 'Transcribing audio...')
 
+        // Determine output format flag
+        const outputFlag = outputFormat === 'txt' ? '--output-txt' :
+                          outputFormat === 'vtt' ? '--output-vtt' :
+                          '--output-srt'
+
         const whisper = spawn(whisperPath, [
           '-m', modelPath,
           '-f', wavPath,
           '-t', '4',
-          '--output-txt'
+          outputFlag
         ])
 
         let whisperOutput = ''
@@ -195,16 +200,19 @@ ipcMain.handle('transcribe-audio', async (event, filePath: string, modelPath: st
             return
           }
 
-          // Try to read the output text file
-          const txtPath = wavPath.replace('.wav', '.txt')
+          // Try to read the output file based on format
+          const outputExt = outputFormat === 'txt' ? '.txt' :
+                           outputFormat === 'vtt' ? '.vtt' :
+                           '.srt'
+          const outputPath = wavPath.replace('.wav', outputExt)
           let transcription = ''
 
-          if (fs.existsSync(txtPath)) {
-            transcription = fs.readFileSync(txtPath, 'utf-8')
+          if (fs.existsSync(outputPath)) {
+            transcription = fs.readFileSync(outputPath, 'utf-8')
             try {
-              fs.unlinkSync(txtPath)
+              fs.unlinkSync(outputPath)
             } catch (e) {
-              console.error('Failed to delete txt file:', e)
+              console.error(`Failed to delete ${outputExt} file:`, e)
             }
           } else {
             transcription = whisperOutput
