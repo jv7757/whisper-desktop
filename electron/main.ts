@@ -295,86 +295,102 @@ ipcMain.handle('download-model', async (event, url: string, filename: string) =>
     }
 
     const filePath = path.join(modelsPath, filename)
-    const file = fs.createWriteStream(filePath)
 
     event.sender.send('download-progress', 0, '开始下载...')
+    console.log('Starting download from:', url)
 
-    https.get(url, (response) => {
-      // Handle redirects
-      if (response.statusCode === 302 || response.statusCode === 301) {
-        const redirectUrl = response.headers.location
-        if (redirectUrl) {
-          file.close()
-          fs.unlinkSync(filePath)
-          // Recursively follow redirect
-          https.get(redirectUrl, handleDownload)
-          return
-        }
-      }
-
-      handleDownload(response)
-    }).on('error', (error) => {
-      file.close()
-      fs.unlinkSync(filePath)
-      reject(error)
-    })
-
-    function handleDownload(response: any) {
-      if (response.statusCode !== 200) {
-        file.close()
-        fs.unlinkSync(filePath)
-        reject(new Error(`下载失败: HTTP ${response.statusCode}`))
+    // Recursive function to handle redirects
+    function downloadFile(downloadUrl: string, redirectCount = 0) {
+      if (redirectCount > 5) {
+        reject(new Error('Too many redirects'))
         return
       }
 
-      const totalSize = parseInt(response.headers['content-length'] || '0', 10)
-      let downloadedSize = 0
-      let lastProgressUpdate = 0
+      console.log('Downloading from:', downloadUrl, 'Redirect count:', redirectCount)
 
-      console.log('Download started, total size:', totalSize, 'bytes')
+      https.get(downloadUrl, (response) => {
+        console.log('Response status:', response.statusCode)
+        console.log('Response headers:', response.headers)
 
-      response.on('data', (chunk: Buffer) => {
-        downloadedSize += chunk.length
-
-        // Calculate progress
-        let progress = 0
-        let statusText = ''
-
-        if (totalSize > 0) {
-          progress = Math.round((downloadedSize / totalSize) * 100)
-          const downloadedMB = (downloadedSize / 1024 / 1024).toFixed(2)
-          const totalMB = (totalSize / 1024 / 1024).toFixed(2)
-          statusText = `下载中... ${downloadedMB}MB / ${totalMB}MB (${progress}%)`
-        } else {
-          // If we don't have total size, just show downloaded amount
-          const downloadedMB = (downloadedSize / 1024 / 1024).toFixed(2)
-          statusText = `下载中... ${downloadedMB}MB`
-          progress = 0
+        // Handle redirects
+        if (response.statusCode === 302 || response.statusCode === 301) {
+          const redirectUrl = response.headers.location
+          if (redirectUrl) {
+            console.log('Redirecting to:', redirectUrl)
+            event.sender.send('download-progress', 0, '跟随重定向...')
+            downloadFile(redirectUrl, redirectCount + 1)
+            return
+          }
         }
 
-        // Only send update if progress changed by at least 1% or every 1MB to avoid too many updates
-        const progressDiff = Math.abs(progress - lastProgressUpdate)
-        if (progressDiff >= 1 || downloadedSize % (1024 * 1024) < chunk.length) {
-          console.log('Download progress:', progress, '%', statusText)
-          event.sender.send('download-progress', progress, statusText)
-          lastProgressUpdate = progress
+        // Check for success status
+        if (response.statusCode !== 200) {
+          reject(new Error(`下载失败: HTTP ${response.statusCode}`))
+          return
         }
-      })
 
-      response.pipe(file)
+        // Start actual download
+        const file = fs.createWriteStream(filePath)
+        const totalSize = parseInt(response.headers['content-length'] || '0', 10)
+        let downloadedSize = 0
+        let lastProgressUpdate = 0
 
-      file.on('finish', () => {
-        file.close()
-        console.log('Download completed')
-        event.sender.send('download-progress', 100, '下载完成')
-        resolve(undefined)
-      })
+        console.log('Download started, total size:', totalSize, 'bytes')
 
-      file.on('error', (error) => {
-        file.close()
-        fs.unlinkSync(filePath)
+        response.on('data', (chunk: Buffer) => {
+          downloadedSize += chunk.length
+
+          // Calculate progress
+          let progress = 0
+          let statusText = ''
+
+          if (totalSize > 0) {
+            progress = Math.round((downloadedSize / totalSize) * 100)
+            const downloadedMB = (downloadedSize / 1024 / 1024).toFixed(2)
+            const totalMB = (totalSize / 1024 / 1024).toFixed(2)
+            statusText = `下载中... ${downloadedMB}MB / ${totalMB}MB (${progress}%)`
+          } else {
+            // If we don't have total size, just show downloaded amount
+            const downloadedMB = (downloadedSize / 1024 / 1024).toFixed(2)
+            statusText = `下载中... ${downloadedMB}MB`
+            progress = 0
+          }
+
+          // Only send update if progress changed by at least 1% or every 1MB to avoid too many updates
+          const progressDiff = Math.abs(progress - lastProgressUpdate)
+          if (progressDiff >= 1 || downloadedSize % (1024 * 1024) < chunk.length) {
+            console.log('Download progress:', progress, '%', statusText)
+            event.sender.send('download-progress', progress, statusText)
+            lastProgressUpdate = progress
+          }
+        })
+
+        response.pipe(file)
+
+        file.on('finish', () => {
+          file.close()
+          console.log('Download completed')
+          event.sender.send('download-progress', 100, '下载完成')
+          resolve(undefined)
+        })
+
+        file.on('error', (error) => {
+          file.close()
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath)
+          }
+          reject(error)
+        })
+      }).on('error', (error) => {
+        console.error('HTTPS request error:', error)
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath)
+        }
         reject(error)
       })
     }
+
+    // Start the download
+    downloadFile(url)
   })
 })
