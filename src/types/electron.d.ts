@@ -10,6 +10,7 @@ export interface ElectronAPI {
   }>
   getModels: () => Promise<Array<{ name: string; path: string }>>
   downloadModel: (url: string, filename: string, onProgress: (progress: number, status: string) => void) => Promise<void>
+  summarizeText: (text: string, onProgress: (status: string) => void) => Promise<string>
 }
 
 declare global {

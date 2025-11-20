@@ -21,5 +21,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
       // Clean up listener
       ipcRenderer.removeListener('download-progress', progressHandler)
     })
+  },
+  summarizeText: (text: string, onProgress: (status: string) => void) => {
+    // Listen for progress updates
+    const progressHandler = (_event: any, status: string) => {
+      onProgress(status)
+    }
+    ipcRenderer.on('summarize-progress', progressHandler)
+
+    // Start summarization
+    return ipcRenderer.invoke('summarize-text', text).finally(() => {
+      // Clean up listener
+      ipcRenderer.removeListener('summarize-progress', progressHandler)
+    })
   }
 })

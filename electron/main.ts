@@ -4,6 +4,7 @@ import { spawn } from 'child_process'
 import * as fs from 'fs'
 import { URL } from 'url'
 import * as https from 'https'
+import * as http from 'http'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -403,5 +404,59 @@ ipcMain.handle('download-model', async (event, url: string, filename: string) =>
 
     // Start the download
     downloadFile(url)
+  })
+})
+
+ipcMain.handle('summarize-text', async (event, text: string) => {
+  return new Promise((resolve, reject) => {
+    const ollamaUrl = 'http://localhost:11434/api/generate'
+    const prompt = `请对以下文本进行总结摘要，要求简洁明了，提取关键信息：\n\n${text}`
+
+    const postData = JSON.stringify({
+      model: 'qwen2.5:3b',
+      prompt: prompt,
+      stream: false
+    })
+
+    const options = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData)
+      }
+    }
+
+    event.sender.send('summarize-progress', '正在连接 Ollama...')
+
+    const req = http.request(ollamaUrl, options, (res) => {
+      let responseData = ''
+
+      res.on('data', (chunk) => {
+        responseData += chunk.toString()
+        event.sender.send('summarize-progress', '正在生成摘要...')
+      })
+
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(responseData)
+          if (result.response) {
+            event.sender.send('summarize-progress', '摘要生成完成')
+            resolve(result.response)
+          } else {
+            reject(new Error('Ollama 响应格式错误'))
+          }
+        } catch (error) {
+          reject(new Error('解析 Ollama 响应失败: ' + (error as Error).message))
+        }
+      })
+    })
+
+    req.on('error', (error) => {
+      console.error('Ollama request error:', error)
+      reject(new Error('无法连接到 Ollama。请确保 Ollama 正在运行 (http://localhost:11434)'))
+    })
+
+    req.write(postData)
+    req.end()
   })
 })

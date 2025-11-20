@@ -11,6 +11,9 @@ function TranscribePage() {
   const [selectedModel, setSelectedModel] = useState<string>('')
   const [outputFormat, setOutputFormat] = useState<'txt' | 'vtt' | 'srt'>('txt')
   const [dependenciesOk, setDependenciesOk] = useState(false)
+  const [summary, setSummary] = useState<string>('')
+  const [isSummarizing, setIsSummarizing] = useState(false)
+  const [summarizeStatus, setSummarizeStatus] = useState<string>('')
   const dropZoneRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -134,6 +137,39 @@ function TranscribePage() {
     }
   }
 
+  const handleSummarize = async () => {
+    if (!transcription) {
+      setSummarizeStatus('请先转录音频')
+      return
+    }
+
+    setIsSummarizing(true)
+    setSummary('')
+    setSummarizeStatus('正在生成摘要...')
+
+    try {
+      const result = await window.electronAPI.summarizeText(transcription, (status) => {
+        setSummarizeStatus(status)
+      })
+      setSummary(result)
+      setSummarizeStatus('摘要生成完成！')
+      setTimeout(() => setSummarizeStatus(''), 2000)
+    } catch (error) {
+      console.error('Summarization error:', error)
+      setSummarizeStatus(`错误: ${(error as Error).message}`)
+    } finally {
+      setIsSummarizing(false)
+    }
+  }
+
+  const handleCopySummary = () => {
+    if (summary) {
+      navigator.clipboard.writeText(summary)
+      setSummarizeStatus('摘要已复制到剪贴板！')
+      setTimeout(() => setSummarizeStatus(''), 2000)
+    }
+  }
+
   return (
     <div className="transcribe-page">
       <div className="content-area">
@@ -209,6 +245,14 @@ function TranscribePage() {
                 <button className="action-btn" onClick={handleSaveText} title="保存文本">
                   💾
                 </button>
+                <button
+                  className="action-btn summarize-btn"
+                  onClick={handleSummarize}
+                  disabled={isSummarizing || !transcription}
+                  title="生成摘要 (需要 Ollama)"
+                >
+                  {isSummarizing ? '⏳' : '🤖'}
+                </button>
               </div>
             )}
           </div>
@@ -220,6 +264,34 @@ function TranscribePage() {
             readOnly={isTranscribing}
           />
         </div>
+
+        {(summary || isSummarizing) && (
+          <div className="summary-area">
+            <div className="output-header">
+              <h3>AI 摘要</h3>
+              {summary && (
+                <div className="output-actions">
+                  <button className="action-btn" onClick={handleCopySummary} title="复制摘要">
+                    📋
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="summary-content">
+              {isSummarizing ? (
+                <div className="summary-loading">
+                  <span className="spinner">⏳</span>
+                  {summarizeStatus}
+                </div>
+              ) : (
+                <p>{summary}</p>
+              )}
+            </div>
+            {summarizeStatus && !isSummarizing && (
+              <div className="summary-status">{summarizeStatus}</div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="control-bar">
