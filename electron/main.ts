@@ -117,7 +117,7 @@ ipcMain.handle('select-file', async () => {
   return null
 })
 
-ipcMain.handle('transcribe-audio', async (event, filePath: string, modelPath: string, outputFormat: string) => {
+ipcMain.handle('transcribe-audio', async (event, filePath: string, modelPath: string, outputFormat: string, language: string) => {
   return new Promise((resolve, reject) => {
     try {
       // Get resources path
@@ -169,12 +169,20 @@ ipcMain.handle('transcribe-audio', async (event, filePath: string, modelPath: st
                           outputFormat === 'vtt' ? '--output-vtt' :
                           '--output-srt'
 
-        const whisper = spawn(whisperPath, [
+        // Build whisper arguments
+        const whisperArgs = [
           '-m', modelPath,
           '-f', wavPath,
           '-t', '4',
           outputFlag
-        ])
+        ]
+
+        // Add language parameter if not auto-detect
+        if (language && language !== 'auto') {
+          whisperArgs.push('-l', language)
+        }
+
+        const whisper = spawn(whisperPath, whisperArgs)
 
         let whisperOutput = ''
         let whisperError = ''

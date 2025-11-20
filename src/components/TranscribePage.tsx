@@ -10,6 +10,7 @@ function TranscribePage() {
   const [models, setModels] = useState<Array<{ name: string; path: string }>>([])
   const [selectedModel, setSelectedModel] = useState<string>('')
   const [outputFormat, setOutputFormat] = useState<'txt' | 'vtt' | 'srt'>('txt')
+  const [language, setLanguage] = useState<string>('auto')
   const [dependenciesOk, setDependenciesOk] = useState(false)
   const [summary, setSummary] = useState<string>('')
   const [isSummarizing, setIsSummarizing] = useState(false)
@@ -104,7 +105,7 @@ function TranscribePage() {
     setStatus('Starting transcription...')
 
     try {
-      const result = await window.electronAPI.transcribeAudio(selectedFile, selectedModel, outputFormat)
+      const result = await window.electronAPI.transcribeAudio(selectedFile, selectedModel, outputFormat, language)
       setTranscription(result)
       setStatus('Transcription completed!')
     } catch (error) {
@@ -230,6 +231,31 @@ function TranscribePage() {
               <option value="txt">文本 (TXT)</option>
               <option value="vtt">字幕 (VTT)</option>
               <option value="srt">字幕 (SRT)</option>
+            </select>
+          </div>
+
+          <div className="format-selector">
+            <label htmlFor="language-select">语言:</label>
+            <select
+              id="language-select"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+            >
+              <option value="auto">自动检测</option>
+              <option value="zh">中文 (Chinese)</option>
+              <option value="en">英语 (English)</option>
+              <option value="ja">日语 (Japanese)</option>
+              <option value="ko">韩语 (Korean)</option>
+              <option value="es">西班牙语 (Spanish)</option>
+              <option value="fr">法语 (French)</option>
+              <option value="de">德语 (German)</option>
+              <option value="ru">俄语 (Russian)</option>
+              <option value="ar">阿拉伯语 (Arabic)</option>
+              <option value="pt">葡萄牙语 (Portuguese)</option>
+              <option value="it">意大利语 (Italian)</option>
+              <option value="hi">印地语 (Hindi)</option>
+              <option value="th">泰语 (Thai)</option>
+              <option value="vi">越南语 (Vietnamese)</option>
             </select>
           </div>
         </div>

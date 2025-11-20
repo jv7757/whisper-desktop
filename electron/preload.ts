@@ -2,8 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('electronAPI', {
   selectFile: () => ipcRenderer.invoke('select-file'),
-  transcribeAudio: (filePath: string, modelPath: string, outputFormat: string) =>
-    ipcRenderer.invoke('transcribe-audio', filePath, modelPath, outputFormat),
+  transcribeAudio: (filePath: string, modelPath: string, outputFormat: string, language: string) =>
+    ipcRenderer.invoke('transcribe-audio', filePath, modelPath, outputFormat, language),
   onTranscriptionStatus: (callback: (status: string) => void) => {
     ipcRenderer.on('transcription-status', (_event, status) => callback(status))
   },

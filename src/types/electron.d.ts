@@ -9,7 +9,7 @@ export interface AiConfig {
 
 export interface ElectronAPI {
   selectFile: () => Promise<string | null>
-  transcribeAudio: (filePath: string, modelPath: string, outputFormat: 'txt' | 'vtt' | 'srt') => Promise<string>
+  transcribeAudio: (filePath: string, modelPath: string, outputFormat: 'txt' | 'vtt' | 'srt', language: string) => Promise<string>
   onTranscriptionStatus: (callback: (status: string) => void) => void
   checkDependencies: () => Promise<{
     ffmpeg: boolean
