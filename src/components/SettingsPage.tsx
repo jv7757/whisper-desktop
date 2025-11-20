@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import type { AiConfig } from '../types/electron'
 import './SettingsPage.css'
 
 interface ModelInfo {
@@ -52,11 +53,53 @@ function SettingsPage() {
   const [downloadProgress, setDownloadProgress] = useState(0)
   const [downloadStatus, setDownloadStatus] = useState<string>('')
   const [installedModels, setInstalledModels] = useState<string[]>([])
+  const [aiProvider, setAiProvider] = useState<'ollama' | 'openai'>('ollama')
+  const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434')
+  const [ollamaModel, setOllamaModel] = useState('qwen2.5:3b')
+  const [openaiApiKey, setOpenaiApiKey] = useState('')
+  const [openaiBaseUrl, setOpenaiBaseUrl] = useState('https://api.openai.com/v1')
+  const [openaiModel, setOpenaiModel] = useState('gpt-3.5-turbo')
+  const [saveStatus, setSaveStatus] = useState('')
 
   useEffect(() => {
     checkDependencies()
     loadInstalledModels()
+    loadAiConfig()
   }, [])
+
+  const loadAiConfig = async () => {
+    try {
+      const config = await window.electronAPI.getAiConfig()
+      if (config) {
+        setAiProvider(config.provider || 'ollama')
+        setOllamaUrl(config.ollamaUrl || 'http://localhost:11434')
+        setOllamaModel(config.ollamaModel || 'qwen2.5:3b')
+        setOpenaiApiKey(config.openaiApiKey || '')
+        setOpenaiBaseUrl(config.openaiBaseUrl || 'https://api.openai.com/v1')
+        setOpenaiModel(config.openaiModel || 'gpt-3.5-turbo')
+      }
+    } catch (error) {
+      console.error('Failed to load AI config:', error)
+    }
+  }
+
+  const saveAiConfig = async () => {
+    try {
+      await window.electronAPI.saveAiConfig({
+        provider: aiProvider,
+        ollamaUrl,
+        ollamaModel,
+        openaiApiKey,
+        openaiBaseUrl,
+        openaiModel
+      })
+      setSaveStatus('配置已保存！')
+      setTimeout(() => setSaveStatus(''), 2000)
+    } catch (error) {
+      console.error('Failed to save AI config:', error)
+      setSaveStatus('保存失败')
+    }
+  }
 
   const checkDependencies = async () => {
     try {
@@ -159,6 +202,110 @@ function SettingsPage() {
           <div className="info-item">
             <div className="info-label">资源目录:</div>
             <div className="info-value">{dependencies.resourcesPath || '未找到'}</div>
+          </div>
+        </section>
+
+        <section className="settings-section">
+          <h3 className="section-title">AI 摘要配置</h3>
+          <p className="section-desc">配置用于文本摘要的 AI 服务</p>
+
+          <div className="ai-provider-selector">
+            <label>选择 AI 服务:</label>
+            <div className="radio-group">
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  value="ollama"
+                  checked={aiProvider === 'ollama'}
+                  onChange={() => setAiProvider('ollama')}
+                />
+                <span>Ollama (本地)</span>
+              </label>
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  value="openai"
+                  checked={aiProvider === 'openai'}
+                  onChange={() => setAiProvider('openai')}
+                />
+                <span>OpenAI</span>
+              </label>
+            </div>
+          </div>
+
+          {aiProvider === 'ollama' && (
+            <div className="config-group">
+              <h4 className="config-subtitle">Ollama 配置</h4>
+              <div className="form-group">
+                <label htmlFor="ollama-url">Base URL:</label>
+                <input
+                  id="ollama-url"
+                  type="text"
+                  value={ollamaUrl}
+                  onChange={(e) => setOllamaUrl(e.target.value)}
+                  placeholder="http://localhost:11434"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="ollama-model">模型名称:</label>
+                <input
+                  id="ollama-model"
+                  type="text"
+                  value={ollamaModel}
+                  onChange={(e) => setOllamaModel(e.target.value)}
+                  placeholder="qwen2.5:3b"
+                />
+              </div>
+              <p className="config-hint">
+                💡 确保 Ollama 已安装并运行，模型已下载：<code>ollama pull {ollamaModel}</code>
+              </p>
+            </div>
+          )}
+
+          {aiProvider === 'openai' && (
+            <div className="config-group">
+              <h4 className="config-subtitle">OpenAI 配置</h4>
+              <div className="form-group">
+                <label htmlFor="openai-key">API Key:</label>
+                <input
+                  id="openai-key"
+                  type="password"
+                  value={openaiApiKey}
+                  onChange={(e) => setOpenaiApiKey(e.target.value)}
+                  placeholder="sk-..."
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="openai-base-url">Base URL:</label>
+                <input
+                  id="openai-base-url"
+                  type="text"
+                  value={openaiBaseUrl}
+                  onChange={(e) => setOpenaiBaseUrl(e.target.value)}
+                  placeholder="https://api.openai.com/v1"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="openai-model">模型名称:</label>
+                <input
+                  id="openai-model"
+                  type="text"
+                  value={openaiModel}
+                  onChange={(e) => setOpenaiModel(e.target.value)}
+                  placeholder="gpt-3.5-turbo"
+                />
+              </div>
+              <p className="config-hint">
+                💡 支持 OpenAI 兼容的 API，可以修改 Base URL 使用其他服务
+              </p>
+            </div>
+          )}
+
+          <div className="config-actions">
+            <button className="save-config-btn" onClick={saveAiConfig}>
+              💾 保存配置
+            </button>
+            {saveStatus && <span className="save-status">{saveStatus}</span>}
           </div>
         </section>
 

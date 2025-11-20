@@ -407,56 +407,196 @@ ipcMain.handle('download-model', async (event, url: string, filename: string) =>
   })
 })
 
-ipcMain.handle('summarize-text', async (event, text: string) => {
-  return new Promise((resolve, reject) => {
-    const ollamaUrl = 'http://localhost:11434/api/generate'
-    const prompt = `请对以下文本进行总结摘要，要求简洁明了，提取关键信息：\n\n${text}`
+// AI Config storage
+const getConfigPath = () => {
+  return path.join(app.getPath('userData'), 'ai-config.json')
+}
 
-    const postData = JSON.stringify({
-      model: 'qwen2.5:3b',
-      prompt: prompt,
-      stream: false
-    })
+ipcMain.handle('get-ai-config', async () => {
+  try {
+    const configPath = getConfigPath()
+    if (fs.existsSync(configPath)) {
+      const data = fs.readFileSync(configPath, 'utf-8')
+      return JSON.parse(data)
+    }
+    return null
+  } catch (error) {
+    console.error('Failed to read AI config:', error)
+    return null
+  }
+})
 
-    const options = {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postData)
-      }
+ipcMain.handle('save-ai-config', async (event, config) => {
+  try {
+    const configPath = getConfigPath()
+    const configDir = path.dirname(configPath)
+
+    // Ensure directory exists
+    if (!fs.existsSync(configDir)) {
+      fs.mkdirSync(configDir, { recursive: true })
     }
 
-    event.sender.send('summarize-progress', '正在连接 Ollama...')
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8')
+    return true
+  } catch (error) {
+    console.error('Failed to save AI config:', error)
+    throw error
+  }
+})
 
-    const req = http.request(ollamaUrl, options, (res) => {
-      let responseData = ''
-
-      res.on('data', (chunk) => {
-        responseData += chunk.toString()
-        event.sender.send('summarize-progress', '正在生成摘要...')
-      })
-
-      res.on('end', () => {
-        try {
-          const result = JSON.parse(responseData)
-          if (result.response) {
-            event.sender.send('summarize-progress', '摘要生成完成')
-            resolve(result.response)
-          } else {
-            reject(new Error('Ollama 响应格式错误'))
-          }
-        } catch (error) {
-          reject(new Error('解析 Ollama 响应失败: ' + (error as Error).message))
+ipcMain.handle('summarize-text', async (event, text: string) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Load AI config
+      let config = null
+      try {
+        const configPath = getConfigPath()
+        if (fs.existsSync(configPath)) {
+          const data = fs.readFileSync(configPath, 'utf-8')
+          config = JSON.parse(data)
         }
-      })
-    })
+      } catch (error) {
+        console.error('Failed to load config:', error)
+      }
 
-    req.on('error', (error) => {
-      console.error('Ollama request error:', error)
-      reject(new Error('无法连接到 Ollama。请确保 Ollama 正在运行 (http://localhost:11434)'))
-    })
+      const provider = config?.provider || 'ollama'
+      const prompt = `请对以下文本进行总结摘要，要求简洁明了，提取关键信息：\n\n${text}`
 
-    req.write(postData)
-    req.end()
+      if (provider === 'ollama') {
+        // Ollama implementation
+        const ollamaUrl = config?.ollamaUrl || 'http://localhost:11434'
+        const model = config?.ollamaModel || 'qwen2.5:3b'
+        const apiUrl = `${ollamaUrl}/api/generate`
+
+        const postData = JSON.stringify({
+          model: model,
+          prompt: prompt,
+          stream: false
+        })
+
+        const url = new URL(apiUrl)
+        const isHttps = url.protocol === 'https:'
+        const httpModule = isHttps ? https : http
+
+        const options = {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(postData)
+          }
+        }
+
+        event.sender.send('summarize-progress', '正在连接 Ollama...')
+
+        const req = httpModule.request(apiUrl, options, (res) => {
+          let responseData = ''
+
+          res.on('data', (chunk) => {
+            responseData += chunk.toString()
+            event.sender.send('summarize-progress', '正在生成摘要...')
+          })
+
+          res.on('end', () => {
+            try {
+              const result = JSON.parse(responseData)
+              if (result.response) {
+                event.sender.send('summarize-progress', '摘要生成完成')
+                resolve(result.response)
+              } else {
+                reject(new Error('Ollama 响应格式错误'))
+              }
+            } catch (error) {
+              reject(new Error('解析 Ollama 响应失败: ' + (error as Error).message))
+            }
+          })
+        })
+
+        req.on('error', (error) => {
+          console.error('Ollama request error:', error)
+          reject(new Error(`无法连接到 Ollama (${ollamaUrl})。请确保 Ollama 正在运行`))
+        })
+
+        req.write(postData)
+        req.end()
+      } else if (provider === 'openai') {
+        // OpenAI implementation
+        const apiKey = config?.openaiApiKey
+        if (!apiKey) {
+          reject(new Error('未配置 OpenAI API Key'))
+          return
+        }
+
+        const baseUrl = config?.openaiBaseUrl || 'https://api.openai.com/v1'
+        const model = config?.openaiModel || 'gpt-3.5-turbo'
+        const apiUrl = `${baseUrl}/chat/completions`
+
+        const postData = JSON.stringify({
+          model: model,
+          messages: [
+            {
+              role: 'system',
+              content: '你是一个专业的文本摘要助手，擅长提取关键信息并进行简洁明了的总结。'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.7
+        })
+
+        const url = new URL(apiUrl)
+        const isHttps = url.protocol === 'https:'
+        const httpModule = isHttps ? https : http
+
+        const options = {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Length': Buffer.byteLength(postData)
+          }
+        }
+
+        event.sender.send('summarize-progress', '正在连接 OpenAI...')
+
+        const req = httpModule.request(apiUrl, options, (res) => {
+          let responseData = ''
+
+          res.on('data', (chunk) => {
+            responseData += chunk.toString()
+            event.sender.send('summarize-progress', '正在生成摘要...')
+          })
+
+          res.on('end', () => {
+            try {
+              const result = JSON.parse(responseData)
+              if (result.choices && result.choices[0]?.message?.content) {
+                event.sender.send('summarize-progress', '摘要生成完成')
+                resolve(result.choices[0].message.content)
+              } else if (result.error) {
+                reject(new Error(`OpenAI API 错误: ${result.error.message || JSON.stringify(result.error)}`))
+              } else {
+                reject(new Error('OpenAI 响应格式错误'))
+              }
+            } catch (error) {
+              reject(new Error('解析 OpenAI 响应失败: ' + (error as Error).message))
+            }
+          })
+        })
+
+        req.on('error', (error) => {
+          console.error('OpenAI request error:', error)
+          reject(new Error(`无法连接到 OpenAI API (${baseUrl})`))
+        })
+
+        req.write(postData)
+        req.end()
+      } else {
+        reject(new Error('未知的 AI 服务提供商'))
+      }
+    } catch (error) {
+      reject(error)
+    }
   })
 })

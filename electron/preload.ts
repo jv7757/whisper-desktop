@@ -34,5 +34,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       // Clean up listener
       ipcRenderer.removeListener('summarize-progress', progressHandler)
     })
-  }
+  },
+  getAiConfig: () => ipcRenderer.invoke('get-ai-config'),
+  saveAiConfig: (config: any) => ipcRenderer.invoke('save-ai-config', config)
 })
